@@ -1,4 +1,4 @@
-# teltonika-is-it-japanese · v2.5.2
+# teltonika-is-it-japanese · v2.5.4
 
 Japanese language audit scanner for `teltonika-gps.com/ja/`.
 Finds English text left untranslated on Japanese pages, and internal links that are missing the `/ja/` locale prefix.

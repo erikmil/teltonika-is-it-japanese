@@ -642,7 +642,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   <div class="hdr-left">
     <div class="dot" id="dot"></div>
     <div>
-      <h1>Japanese Audit Scanner <span style="font-size:.45em;font-weight:400;opacity:.4;letter-spacing:.05em;vertical-align:middle">v2.5.2</span></h1>
+      <h1>Japanese Audit Scanner <span style="font-size:.45em;font-weight:400;opacity:.4;letter-spacing:.05em;vertical-align:middle">v2.5.4</span></h1>
       <p>teltonika-gps.com/ja/ &nbsp;·&nbsp; English text &amp; broken locale links</p>
     </div>
   </div>
@@ -705,34 +705,83 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 <script>
 let es = null, running = false, filter = 'all', hideCodes = false, hideAttrs = true, hideNames = false, uniqueOnly = false;
 
-// Words that appear title-cased but are NOT personal names
+// Non-name words that appear title-cased or all-caps in content
 const NAME_EXCLUSIONS = new Set([
+  // navigation / UI
+  'search','page','pages','home','about','all','new','free','more','read',
+  'visit','contact','contacts','go','get','see','view','find','register',
+  'compare','default','filters','filter','sort','language','english','spanish',
+  'french','german','japanese','ukrainian','selector','region','country',
+  // business / product words
   'web','access','easy','real','device','update','standard','basic','advanced',
-  'professional','search','management','platform','solution','service','system',
-  'network','monitor','control','smart','global','premium','enterprise','plus',
-  'pro','news','blog','all','new','free','get','see','view','find','from','this',
-  'our','your','go','visit','contact','support','learn','more','read','page',
-  'home','about','logistics','public','services','modern','require','using',
-  'help','direct','explore','list','fleet','telematics','supported','information',
-  'configuration','configurator','iridium','connected','practical','cost',
-  'effective','smooth','transition','networks','robust','durable','hardware',
-  'personalised','usage','scenarios','firmware','uploads','desktop','versions',
-  'setup','wizard','automatic','seamless','software','categories','partners',
-  'custom','security','tracking','analytics','cloud','data','portal','dashboard',
+  'professional','management','platform','solution','solutions','service',
+  'services','system','network','networks','monitor','control','smart','global',
+  'premium','enterprise','plus','pro','news','blog','list','fleet','telematics',
+  'supported','information','configuration','configurator','iridium','connected',
+  'practical','cost','effective','smooth','transition','robust','durable',
+  'hardware','personalised','usage','scenarios','firmware','uploads','desktop',
+  'versions','setup','wizard','automatic','seamless','software','categories',
+  'partners','custom','security','tracking','analytics','cloud','data','portal',
+  'dashboard','technology','integration','deployment','implementation','features',
+  'products','providers','devices','types','options','results','terms','updates',
+  'downloads','topics','resources','images','media','details','reports',
+  'conditions','sections','section','error','loading','sorting','category',
+  // job-title words
+  'chief','executive','officer','director','manager','coordinator','engineer',
+  'specialist','analyst','developer','designer','architect','consultant',
+  'advisor','president','chairman','founder','associate','principal','senior',
+  'junior','lead','head','deputy','representative','owner','operator',
+  // webinar / event words
+  'recording','webinar','webinars','speakers','agenda','session','live',
+  'introduction','conclusions','overview','challenges','benefits','concept',
+  'opportunities','practices','market','tracking','vehicle','insurance',
+  'future','urban','signal','precise','blockage','industries','business',
+  // brand / product names that look like names
+  'teltonika','wirepas','bluetooth','configurator','tachograph','dualcam',
+  'fota','atex','gnss','mesh','wiki','iridium','gpsgate','wialon','escort',
+  'gurtam','argus','academy',
+  // common non-name words
+  'fast','top','use','not','lead','back','touch','start','privacy','policy',
+  'policies','cookies','copyright','from','this','our','your','public',
+  'modern','using','help','direct','explore','logistics','cases','found',
+  'sorry','beyond','creative','powers','homepage','features','items',
 ]);
+
+// Word endings that never appear in personal names
+const NOT_NAME_SUFFIX = /(?:TION|NESS|MENT|OUND|CESS|WARE|WORK|SHIP|LESS|WISE|OLOG|ICAL|IBLE|ABLE|IOUS|ISM|INGS|IES)$/i;
 
 function looksLikeName(text) {
   const stripped = text.replace(/[,.\s]+$/, '').trim();
   const words = stripped.split(/\s+/);
-  if (words.length < 2 || words.length > 3) return false;
-  for (const word of words) {
-    const clean = word.replace(/[.,;:]$/, '');
-    if (!clean || clean.length < 2) return false;
-    if (!/^[A-ZÁČĘĖĮŠŲŪŽ]/.test(clean)) return false;   // must start uppercase
-    if (/^[A-ZÀ-ÖØ-Þ]+$/.test(clean)) return false; // all-caps
-    if (/\d/.test(clean)) return false;                    // has digits
-    if (!/^[A-Za-záčęėįšųūžĄČĘĖĮŠŲŪŽ'\-]+$/.test(clean)) return false; // letters only
-    if (NAME_EXCLUSIONS.has(clean.toLowerCase())) return false;
+  if (words.length < 2 || words.length > 4) return false;
+  if (/\d/.test(stripped)) return false;   // any digit anywhere → not a name
+
+  const cleanWords = words.map(w => w.replace(/[.,;:]+$/, ''));
+
+  // ── All-caps path: ANDY PATRICK, AIRIDAS STAŠENKA, GABRIELA MARIA RODRIGUEZ CALIX
+  // Allow Lithuanian/accented uppercase: Š Ū Č Ė etc.
+  const isAllCaps = cleanWords.every(w => w.length > 0 && /^[\p{Lu}]+$/u.test(w));
+  if (isAllCaps) {
+    for (const w of cleanWords) {
+      if (w.length < 3 || w.length > 20) return false;
+      if (!/^[\p{L}]+$/u.test(w)) return false;
+      if (NAME_EXCLUSIONS.has(w.toLowerCase())) return false;
+      if (NOT_NAME_SUFFIX.test(w)) return false;
+    }
+    return true;
+  }
+
+  // ── Title-case / mixed path: Gintarė N., Francisco Q., John Smith, Arūnas Kuginys
+  for (const w of cleanWords) {
+    if (!w) return false;
+    // Single uppercase letter = surname initial (e.g. "N." in "Gintarė N.")
+    if (/^[\p{Lu}]$/u.test(w)) continue;
+    if (w.length < 2) return false;
+    if (!/^[\p{Lu}]/u.test(w)) return false;        // must start uppercase
+    if (/^[\p{Lu}]+$/u.test(w)) return false;       // all-caps word in mixed context = acronym
+    if (!/^[\p{L}'\-]+$/u.test(w)) return false;   // letters, hyphens, apostrophes only
+    if (NAME_EXCLUSIONS.has(w.toLowerCase())) return false;
+    if (NOT_NAME_SUFFIX.test(w)) return false;
   }
   return true;
 }
